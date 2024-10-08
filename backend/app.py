@@ -7,7 +7,7 @@ import string
 app = Flask(__name__)
 
 # Load configuration from config.yaml
-with open("config/config.yaml") as config_file:
+with open("../config/config.yaml") as config_file:
     config = yaml.safe_load(config_file)
 
 url_mapping = {}
