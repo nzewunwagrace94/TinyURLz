@@ -1,37 +1,43 @@
-from flask import Flask, request, jsonify, render_template, redirect
-import hashlib
+# backend/app.py
+from flask import Flask, request, jsonify
+import yaml
+import random
+import string
 
 app = Flask(__name__)
 
-# Simulating a database with a dictionary for now
-url_database = {}
+# Load configuration from config.yaml
+with open("config/config.yaml") as config_file:
+    config = yaml.safe_load(config_file)
 
-# Homepage route (rendering the frontend)
-@app.route('/')
-def index():
-    return render_template('index.html')
+url_mapping = {}
 
-# URL shortening route
+def generate_short_url(length=6):
+    """Generate a random short URL key."""
+    characters = string.ascii_letters + string.digits
+    return ''.join(random.choice(characters) for _ in range(length))
+
 @app.route('/shorten', methods=['POST'])
 def shorten_url():
-    long_url = request.form.get('longUrl')
+    """Shorten a given URL."""
+    data = request.json
+    long_url = data.get('longUrl')
     
-    # Create a hash of the long URL
-    short_url = hashlib.md5(long_url.encode()).hexdigest()[:6]
+    if not long_url:
+        return jsonify({"error": "No URL provided."}), 400
     
-    # Store the mapping in the dictionary
-    url_database[short_url] = long_url
-    
-    return jsonify({'short_url': short_url})
+    short_url = generate_short_url()
+    url_mapping[short_url] = long_url
+    return jsonify({"shortUrl": f"{config['base_url']}/{short_url}"}), 201
 
-# Redirect to long URL when short URL is visited
-@app.route('/<short_url>')
-def redirect_to_long_url(short_url):
-    long_url = url_database.get(short_url)
+@app.route('/<short_url>', methods=['GET'])
+def redirect_url(short_url):
+    """Redirect to the original URL."""
+    long_url = url_mapping.get(short_url)
+    
     if long_url:
-        return redirect(long_url)
-    else:
-        return "URL not found!", 404
+        return jsonify({"longUrl": long_url}), 302
+    return jsonify({"error": "URL not found."}), 404
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=config['port'])
